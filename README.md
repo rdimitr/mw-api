@@ -5,7 +5,7 @@ MW api
 1. Скачать mw-api.zip
 2. Распаковать
 3. Перейти в каталог /mw-api
-4. Установить зависимости: npm -install
+4. Установить зависимости: npm install
 5. Установить Oracle Client, например Instant client 19.11 (скачивается с официального сайта,
    имя файла instantclient-basic-windows.x64-19.11.0.0.0dbru.zip). После распаковки содержимое
    архива копируется в каталог \node_modules\oracledb\build\Release\ проекта mw_api
