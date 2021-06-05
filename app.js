@@ -1,39 +1,17 @@
 var express = require('express');
 var app = express();
 
-var bodyParser = require('body-parser');
+//var bodyParser = require('body-parser');
+app.use(express.json());
 
 var sql = require("mssql");
 var oracledb = require('oracledb');
 
 var constants = require('./db.config');
+var listdocs = require("./listdocs.js");
 
 const cors = require('cors')
 app.use(cors());
-
-
-function modifyDate(inputDate) {
-    function addLeadZero(val, zeroCount) {
-              switch (zeroCount){
-                      case 3: if (+val < 10) {return '00' + val;}
-                              else if (+val < 100) {return '0' + val;}  
-                              break;
-                      case 2: if (+val < 10) return '0' + val; break;
-              }
-              return val;
-    };
-
-    var a = new Date(inputDate);
-    var dateStr = [ addLeadZero(a.getDate(),2), addLeadZero(a.getMonth() + 1,2), a.getFullYear(),
-              ].join('.') 
-              + ' ' +
-              [ addLeadZero(a.getHours(),2), addLeadZero(a.getMinutes(),2),  a.getSeconds(),
-                addLeadZero(a.getMilliseconds(),3) 
-              ]. join(':');
-
-    return dateStr;
-}
-
 
 
 async function getOraData(iCard, res){
@@ -86,8 +64,9 @@ async function getSQLData(docsMW, res){
         request.query(sQuery)
                .then(data => {
                         console.log('Request ok...');
+                        // Приведение даты к формату DD:MM:YYYY HH:MM:SS:MS
                         data.recordset.forEach( (item, i)=>{
-                             data.recordset[i].status_date = modifyDate(data.recordset[i].status_date);
+                             data.recordset[i].status_date = listdocs.modifyDate(data.recordset[i].status_date);
                         });
                         res.send(JSON.stringify(data.recordset));
                })
@@ -106,6 +85,44 @@ app.get('/status/:idcard', function (req, res) {
     if (iCard > 0) {
         let iCardMW = getOraData(iCard, res);
     };
+});
+
+
+app.get('/listdocs', function (req, res) {
+    //let reqbody = req.body;
+    let dateBegin, dateEnd, lstStat, lstAuthor;
+
+    if (!('beginInterval' in req.body) ||  !('endInterval' in req.body)) 
+                 {
+                   dateBegin = listdocs.createCurrentDate(true);
+                   dateEnd  = listdocs.createCurrentDate(false);
+                }
+                else {
+                    if (req.body.beginInterval) {
+                       dateBegin = req.body.beginInterval;
+                    } else {
+                       dateBegin = listdocs.createCurrentDate(true); 
+                    };
+                    if (req.body.endInterval) {
+                        dateEnd = req.body.endInterval;
+                    }
+                    else {
+                        dateEnd  = listdocs.createCurrentDate(false);
+                    }
+                };
+    if ('listStatus' in req.body) {
+         if (req.body.listStatus.length > 0) {lstStat = req.body.listStatus} else {lstStat = null}
+    }  else {
+         lstStat = null;
+    }
+
+    if ('listDoctor' in req.body) {
+         if (req.body.listDoctor.length > 0) {lstAuthor = req.body.listDoctor} else {lstAuthor = null}
+    } else {
+        lstAuthor = null;
+    }
+    
+    var listOra = listdocs.getListDocs(dateBegin, dateEnd, lstStat, lstAuthor, res)
 });
 
 
