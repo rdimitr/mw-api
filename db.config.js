@@ -1,14 +1,14 @@
 const configOra = {
-             user          : "xxxx",
-             password      : "xxxx",
+             user          : "medbase",
+             password      : "medbrat",
              connectString : "192.168.0.105/MNTK"
         };
 
 
 
 const configMSSQL = {
-            user: 'xx',
-            password: 'xxxxx_1',
+            user: 'sa',
+            password: 'Sasasa_1',
             server: '192.168.0.142', 
             database: 'MedworkData',
             options: {
@@ -16,5 +16,7 @@ const configMSSQL = {
                trustServerCertificate: true
             } 
         };
+
+const chunkINexpression = 500;
         
-module.exports = {configOra, configMSSQL};
+module.exports = {configOra, configMSSQL, chunkINexpression};

@@ -52,63 +52,66 @@ function replaceAll(str, find, replace) {
 }
 
 
-async function getMSSQLData(sDocsList, lstStat, callback){
-    
+async function getMSSQLData(lstStat, fullArrayDocs, callback){
     sql.connect(constants.configMSSQL, function (err) {
 
     if (err) {
          console.log(err);
          res.send({ message: "Ошибка соединения с MQ SQL", error: 500 });
     }
-    let request = new sql.Request(); 
-    let sQuery = `select tsk.mw_id, tsk_state.statusID
-                  from MedworkData.dbo.egiszTasks as tsk 
-                  left outer join MedworkData.dbo.egiszTaskStatus as tsk_state on tsk_state.MasterID = tsk.ID
-                  left outer join MedworkData.dbo.egiszTaskStatusDict as state_dict on state_dict.ID = tsk_state.statusID
-                  where tsk.mw_id in ` + sDocsList;
+    lstSQLdocs = [];
+    lstSQLstats = [];
+    let sDocsList;
 
-    let substrStates = ` and tsk_state.statusID in (:LST_STATES) `;
-    let endSQLstring = ` order by tsk.mw_id,tsk_state.status_date`;
-    if (lstStat) {sQuery = sQuery + replaceAll(substrStates, ":LST_STATES", lstStat);}
-    sQuery+=endSQLstring;
+    for (let i=0; i<fullArrayDocs.length; i++) {
+        sDocsList = fullArrayDocs[i];
+        let request = new sql.Request(); 
+        let sQuery = `select tsk.mw_id, tsk_state.statusID
+                      from MedworkData.dbo.egiszTasks as tsk 
+                      left outer join MedworkData.dbo.egiszTaskStatus as tsk_state on tsk_state.MasterID = tsk.ID
+                      left outer join MedworkData.dbo.egiszTaskStatusDict as state_dict on state_dict.ID = tsk_state.statusID
+                      where tsk.mw_id in ` + sDocsList;
+        let substrStates = ` and tsk_state.statusID in (:LST_STATES) `;
+        let endSQLstring = ` order by tsk.mw_id,tsk_state.status_date`;
+        if (lstStat) {sQuery = sQuery + replaceAll(substrStates, ":LST_STATES", lstStat);}
+        sQuery+=endSQLstring;
 
-    request.query(sQuery)
-           .then(data => {
-                    console.log('Request ok...');
+        request.query(sQuery)
+            .then(data => {
+                let lstPartStats = [];
+                let old_id = -1;
+                let new_id = 0;
 
-                    lstSQLdocs = [];
-                    lstSQLstats = [];
-                    let lstPartStats = [];
-                    let old_id = -1;
-                    let new_id = 0;
+                data.recordset.forEach( (item, i)=>{
+                    new_id = item.mw_id;
+                    if (new_id != old_id){ 
+                        if (old_id != -1) {
+                            lstSQLdocs.push(old_id);
+                            lstSQLstats.push(lstPartStats);
+                        };
+                        lstPartStats = [];
+                        lstPartStats.push(item.statusID);
+                        old_id = new_id; 
+                    }
+                    else {
+                        lstPartStats.push(item.statusID);
+                    }      
+                });
+                lstSQLdocs.push(old_id);
+                lstSQLstats.push(lstPartStats); // записать последний элемент
 
-                    data.recordset.forEach( (item, i)=>{
-                        new_id = item.mw_id;
-                        if (new_id != old_id){ 
-                            if (old_id != -1) {
-                                lstSQLdocs.push(old_id);
-                                lstSQLstats.push(lstPartStats);
-                            };
-                            lstPartStats = [];
-                            lstPartStats.push(item.statusID);
-                            old_id = new_id; 
-                        }
-                        else {
-                            lstPartStats.push(item.statusID);
-                        }      
-                    });
-                    lstSQLdocs.push(old_id);
-                    lstSQLstats.push(lstPartStats); // записать последний элемент
-
-                    callback(); //-!
+                if (i==fullArrayDocs.length-1){ // Окончание цикла по чанкам списков документов
+                    sql.close();
+                    callback();
                     return 0;
-           })
-           .then(()=>sql.close())
-           .catch(error => {
-                    console.error(error);
-                    res.send({ message: "Error execute SQL script...", error: 500 });
-           })
-    });
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                res.send({ message: "Error execute SQL script...", error: 500 });
+            })
+    }; //for
+    })
 }
 
 
@@ -127,12 +130,31 @@ async function getListDocs(dateBegin, dateEnd, lstStat, lstAuthor, res){
         }
         else {
             await connectionOra.close();
-            let sDocsList = "(";
-            queryResult.rows.forEach( (item, i)=>{
-                if (i==queryResult.rows.length-1) {sDocsList+=item[6]+")"} else {sDocsList+=item[6]+","}
-            });
 
-            await getMSSQLData(sDocsList, lstStat, function(){
+            let partStr = "";
+            let fullArrayDocs = [];
+            let lenChunk = constants.chunkINexpression;
+
+            queryResult.rows.forEach( (item, i)=>{
+                if (queryResult.rows.length > lenChunk){
+                    if (i % lenChunk > 0) {
+                        partStr+=item[6]+",";
+                    } else {
+                        if(i == 0) {
+                            partStr+=item[6]+",";
+                        }
+                        else {
+                            fullArrayDocs.push("(" + partStr.slice(0,-1) + ")"); partStr = ""; partStr+=item[6]+",";
+                        }
+                    }
+                }    
+                else {
+                    partStr+=item[6]+",";
+                }
+            });
+            if (partStr != "") {fullArrayDocs.push("(" + partStr.slice(0,-1) + ")")}
+
+            await getMSSQLData(lstStat, fullArrayDocs, function(){
 
                 if (lstStat) { // Статусы определены, отдать пересечение списков
                     queryResult.rows = queryResult.rows.filter(function(item, key) {
