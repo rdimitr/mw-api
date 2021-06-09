@@ -1,7 +1,6 @@
 var express = require('express');
 var app = express();
 
-//var bodyParser = require('body-parser');
 app.use(express.json());
 
 var sql = require("mssql");
@@ -9,6 +8,7 @@ var oracledb = require('oracledb');
 
 var constants = require('./db.config');
 var listdocs = require("./listdocs.js");
+var renewal = require('./renewal.js');
 
 const cors = require('cors')
 app.use(cors());
@@ -73,7 +73,7 @@ async function getSQLData(docsMW, res){
                .then(()=>sql.close())
                .catch(error => {
                         console.error(error);
-                        res.send({ message: "Error execute SQL script...", error: 500 });
+                        res.send({ message: "Ошибка выполнения MS SQL скрипта...", error: 500 });
                })
         });
 }
@@ -126,6 +126,17 @@ app.get('/listdocs', function (req, res) {
 });
 
 
+app.get('/monitor', function (req, res) {
+   renewal.callProcessUpdate(true);
+   res.send({ message: "Данные по статусам документов за весь период обновлены успешно", error: 200 });
+});
+
+
 var server = app.listen(5050, function () {
     console.log('Server is running.. Port ' + server.address().port);
 });
+
+
+if (constants.renewalInterval > 0){
+    var timer = setInterval(function (){ renewal.callProcessUpdate(false); }, constants.renewalInterval);
+};

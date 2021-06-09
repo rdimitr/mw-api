@@ -13,7 +13,7 @@ function modifyDate(inputDate) {
     var dateStr = [ addLeadZero(a.getDate(),2), addLeadZero(a.getMonth() + 1,2), a.getFullYear(),
               ].join('.') 
               + ' ' +
-              [ addLeadZero(a.getHours(),2), addLeadZero(a.getMinutes(),2),  addLeadZero(a.getSeconds(),2),
+              [ addLeadZero(a.getUTCHours(),2), addLeadZero(a.getMinutes(),2),  addLeadZero(a.getSeconds(),2),
                 addLeadZero(a.getMilliseconds(),3) 
               ]. join(':');
 
@@ -124,7 +124,7 @@ async function getListDocs(dateBegin, dateEnd, lstStat, lstAuthor, res){
         let queryResult = await connectionOra.execute(sQuery);                      
         if (queryResult.rows.length === 0) {
             await connectionOra.close();
-            console.error("No results");
+            console.error("Документы в Oracle не найдены");
             res.send({ message: "Документы не найдены", error: 404 });
             return -1;
         }
@@ -171,7 +171,6 @@ async function getListDocs(dateBegin, dateEnd, lstStat, lstAuthor, res){
                     item[3] = modifyDate(item[3]);
                     item[4] = modifyDate(item[4]);
                 });
-
                 var queryResultJSON = JSON.stringify(queryResult);
                 res.send(queryResultJSON);
             });
@@ -214,3 +213,4 @@ module.exports.getListDocs = getListDocs;
 module.exports.createCurrentDate = createCurrentDate;
 module.exports.addLeadZero = addLeadZero;
 module.exports.modifyDate = modifyDate;
+module.exports.replaceAll = replaceAll;
