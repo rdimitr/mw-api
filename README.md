@@ -11,7 +11,7 @@ MW api
    архива копируется в каталог \node_modules\oracledb\build\Release\ проекта mw_api
 7. В db.config.js изменить учетные данные для подключения к Oracle и MS SQL (Medwork)
 8. Запустить сервер
-   node app.js
+   node mw-api.js
 
 Сервер работает на порту 5050.
 
